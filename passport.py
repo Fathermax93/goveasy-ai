@@ -1,71 +1,54 @@
-from crewai import Agent, Task, Crew, Process
+from crewai import Agent, Crew, Process, Task
 from llm import get_llm
 
-def run_passport_agent(user_request: str) -> str:
-    # Initialize LLM instance
-    llm_instance = get_llm()
 
-    # Define Agent
-    passport_assistant = Agent(
-        role="GovEasy AI Nigerian Passport Advisor",
-        goal="Provide accurate guidance on Nigerian international passport processes, requirements, and official fees.",
-        backstory=(
-            "You are an expert citizen advisor specialized in Nigerian government procedures. "
-            "You help citizens navigate international passport applications, renewals, lost passport handling, "
-            "and fee structure inquiries with accuracy, clarity, and authority."
+def create_passport_crew() -> Crew:
+    """Factory function to generate a fresh Crew instance per request using OpenRouter."""
+    passport_agent = Agent(
+        role="Passport Services Assistant",
+        goal=(
+            "Provide clear, step-by-step guidance on Nigerian passport"
+            " applications, renewals, and current official fee schedules."
         ),
-        llm=llm_instance,
+        backstory=(
+            "You are a dedicated civic assistant specializing in helping Nigerian"
+            " citizens navigate international passport procedures, documentation"
+            " requirements, and accurate government fee structures."
+        ),
+        verbose=False,
         allow_delegation=False,
-        verbose=True
+        llm=get_llm(),
     )
 
-    # Define Task with Scope Check, Fee Accuracy, Table Formatting, and Official Sources
     passport_task = Task(
-        description=f"""Analyze this citizen request:
-"{user_request}"
-
-CRITICAL DIRECTIVES:
-1. SCOPE CHECK: Is this query strictly related to Nigerian international passports? (e.g., applying, renewing, fees, required documents, lost/damaged passports, tracking status).
-   - IF NO (e.g., business registration, CAC, driver's license, visas, weather, general questions): Immediately state politely that GovEasy AI currently only assists with Nigerian international passport inquiries. Do NOT process the unrelated task.
-
-2. FEE ACCURACY: If discussing official fees, use the official Nigeria Immigration Service (NIS) domestic tariffs:
-   - Standard 32-Page / 5-Year Passport: ₦100,000
-   - Standard 64-Page / 10-Year Passport: ₦200,000
-
-3. RESPONSE STYLE & FORMATTING:
-   - Format guidance into warm, clear, structured steps or tables for the citizen.
-   - Keep all Markdown table row entries strictly on a single line to prevent layout wrapping errors.
-
-4. OFFICIAL SOURCES (REQUIRED):
-   At the absolute end of your response, ALWAYS append this exact block:
-
----
-**Sources & Official Verification:**
-* **Passport Services:** Official Nigeria Immigration Service (NIS) Portal — passport.immigration.gov.ng
-* **Identity Management:** National Identity Management Commission (NIMC) — nimc.gov.ng
-* *Note: Always verify current official fees and document requirements directly on the NIS portal before submitting your application.*
-""",
-        expected_output="A polite, structured response providing exact Nigerian passport steps or fees with the required Official Sources section at the end, or a polite scope restriction message.",
-        agent=passport_assistant
+        description=(
+            "Provide full application guidance and a document checklist for:"
+            " {user_query}. When explaining costs, you MUST use the following"
+            " updated Nigeria Immigration Service (NIS) fee schedule:\n-"
+            " **Applications within Nigeria:**\n  - 32-Page Passport (5-Year"
+            " Validity): ₦100,000\n  - 64-Page Passport (10-Year Validity):"
+            " ₦200,000\n- **Applications from Diaspora:**\n  - 32-Page Passport"
+            " (5-Year Validity): $150\n  - 64-Page Passport (10-Year Validity):"
+            " $230\nEnsure all details clearly state these exact figures."
+        ),
+        expected_output=(
+            "A structured guide covering updated fees (₦100k/₦200k in Nigeria,"
+            " $150/$230 Diaspora), eligibility, required documents, step-by-step"
+            " application instructions, and key warnings."
+        ),
+        agent=passport_agent,
     )
 
-    # Create Crew
-    crew = Crew(
-        agents=[passport_assistant],
+    return Crew(
+        agents=[passport_agent],
         tasks=[passport_task],
         process=Process.sequential,
-        verbose=True
+        verbose=False,
     )
 
-    try:
-        result = crew.kickoff()
-        return str(result)
-    except Exception as e:
-        # Log internal error to server console for developer debugging
-        print(f"[GovEasy AI Server Error]: {e}")
-        
-        # Return clean, user-facing error message
-        return (
-            "Sorry, GovEasy AI is temporarily unavailable. "
-            "Please try again in a few moments."
-        )
+
+async def run_passport_agent(query: str) -> str:
+    """Asynchronously executes the passport agent crew using kickoff_async()."""
+    crew = create_passport_crew()
+    result = await crew.kickoff_async(inputs={"user_query": query})
+    return str(result)

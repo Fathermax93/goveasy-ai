@@ -18,6 +18,12 @@
 * Prompt injection protection
 * Friendly, structured responses with official source references
 
+Guardrails
+✅ Rejects unrelated government services
+✅ Rejects prompt injection attempts
+✅ Keeps responses within passport scope
+✅ Gives verification disclaimer
+
 ---
 
 🛠️ Tech Stack
