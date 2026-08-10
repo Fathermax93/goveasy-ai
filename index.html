@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GovEasy AI — Nigerian Passport Assistant</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --naija-green: #008751;
+            --naija-green-dark: #005c37;
+            --naija-green-light: #e6f4ed;
+            --bg-color: #f4f7f5;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --border-color: #d1e7dd;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 25px 15px;
+        }
+        .container {
+            max-width: 680px;
+            margin: auto;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        .header-banner {
+            background: linear-gradient(135deg, var(--naija-green) 0%, var(--naija-green-dark) 100%);
+            color: white;
+            padding: 24px;
+            text-align: center;
+        }
+        .header-banner h1 { margin: 0; font-size: 1.75rem; }
+        .header-banner p { margin: 6px 0 0 0; opacity: 0.92; font-size: 0.95rem; }
+        .form-area { padding: 24px; }
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            resize: none;
+            font-family: inherit;
+            font-size: 15px;
+            box-sizing: border-box;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: var(--naija-green);
+            box-shadow: 0 0 0 3px rgba(0, 135, 81, 0.15);
+        }
+        button {
+            width: 100%;
+            margin-top: 14px;
+            padding: 14px;
+            background: var(--naija-green);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        button:hover { background: var(--naija-green-dark); }
+        #answer { margin-top: 24px; line-height: 1.6; font-size: 0.95rem; }
+        .response-card {
+            background: #ffffff;
+            border-left: 5px solid var(--naija-green);
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #edf2f0;
+            box-shadow: 0 2px 6px rgba(0, 135, 81, 0.05);
+        }
+        .loading-state {
+            color: var(--naija-green-dark);
+            font-weight: 600;
+            padding: 12px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-banner">
+        <h1>🇳🇬 GovEasy AI</h1>
+        <p>Nigerian International Passport Assistant</p>
+    </div>
+
+    <div class="form-area">
+        <textarea id="message" placeholder="Ask your passport question here..."></textarea>
+        <button onclick="askGovEasy()">Ask GovEasy AI</button>
+        <div id="answer"></div>
+    </div>
+</div>
+
+<script>
+async function askGovEasy() {
+    const message = document.getElementById("message").value;
+    const answerBox = document.getElementById("answer");
+
+    if (!message.trim()) {
+        answerBox.innerHTML = "<div class='loading-state'>Please enter a question before submitting.</div>";
+        return;
+    }
+
+    answerBox.innerHTML = "<div class='loading-state'>Processing your request...</div>";
+
+    try {
+        const response = await fetch("/agent/run", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: message })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || "Server error occurred");
+        }
+
+        const data = await response.json();
+        console.log("API Response:", data);
+
+        // Fallback checks across common response keys
+        const rawOutput = data.answer || data.response || data.result || data.output || (typeof data === 'string' ? data : JSON.stringify(data));
+        
+        answerBox.innerHTML = `<div class="response-card">${marked.parse(rawOutput)}</div>`;
+    } catch (error) {
+        console.error("Execution error:", error);
+        answerBox.innerHTML = `<div class="response-card" style="border-left-color: #dc2626;">
+            <p style="color: #dc2626; margin: 0;">Sorry, GovEasy AI is temporarily unavailable. Please try again in a few moments.</p>
+        </div>`;
+    }
+}
+</script>
+
+</body>
+</html>

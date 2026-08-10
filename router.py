@@ -1,78 +1,30 @@
-import re
+import traceback
 from fastapi import APIRouter, HTTPException
-from passport import run_passport_agent
-from schemas import CitizenRequest, CitizenResponse
+from passport import run_passport_agent  # Import the async function from passport.py
+from pydantic import BaseModel
 
 router = APIRouter()
 
-DISCLAIMER = (
-    "\n\n---\n"
-    "*Note: Passport requirements and fees may change. "
-    "Please confirm the latest information on the official "
-    "Nigeria Immigration Service (NIS) portal before submitting your application.*"
-)
 
-# Pre-compiled injection regex
-INJECTION_REGEX = re.compile(
-    r"(ignore (your|previous|all) instructions|"
-    r"reveal (your|the) (system|developer) prompt|"
-    r"system prompt|"
-    r"disregard (your|all) rules|"
-    r"repeat the text above|"
-    r"you are now in dan mode|"
-    r"override previous directives)",
-    re.IGNORECASE,
-)
+class QueryRequest(BaseModel):
+    message: str
 
 
-def is_malicious_injection(text: str) -> bool:
-    return bool(INJECTION_REGEX.search(text))
-
-
-@router.get("/health")
-def health_check():
-    return {"status": "healthy", "service": "GovEasy AI"}
-
-
-@router.post("/agent/run", response_model=CitizenResponse)
-async def run_agent(request: CitizenRequest):
+@router.post("/agent/run")
+async def run_agent(request: QueryRequest):
     try:
-        cleaned_message = request.message.strip()
-        if not cleaned_message:
-            return CitizenResponse(
-                status="rejected",
-                answer="Please enter a valid query or question before submitting.",
-                required_documents=[],
-                steps=[],
-                escalation_required=False,
-            )
+        # Await the asynchronous execution function
+        result = await run_passport_agent(request.message)
 
-        if is_malicious_injection(cleaned_message):
-            return CitizenResponse(
-                status="rejected",
-                answer=(
-                    "REJECTED: Malicious request detected. Prompt injection or system"
-                    " instruction override attempts are not permitted."
-                ),
-                required_documents=[],
-                steps=[],
-                escalation_required=False,
-            )
+        # Return response under the 'answer' key expected by index.html
+        return {"answer": str(result)}
 
-        # Directly await the async agent runner
-        raw_answer = await run_passport_agent(cleaned_message)
-
-        formatted_answer = f"{raw_answer}{DISCLAIMER}"
-
-        return CitizenResponse(
-            status="success",
-            answer=formatted_answer,
-            required_documents=[],
-            steps=[],
-            escalation_required=False,
-        )
     except Exception as e:
-        print(f"\n[GovEasy AI Router Error]: {e}\n")
+        print("\n" + "=" * 50)
+        print("CRITICAL ERROR IN AGENT EXECUTION:")
+        traceback.print_exc()
+        print("=" * 50 + "\n")
+
         raise HTTPException(
-            status_code=500, detail=f"Error executing agent task: {str(e)}"
+            status_code=500, detail=f"Agent Execution Error: {str(e)}"
         )

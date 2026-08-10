@@ -1,54 +1,73 @@
-from crewai import Agent, Crew, Process, Task
-from llm import get_llm
+import os
+import logging
+from dotenv import load_dotenv
+from crewai import LLM, Agent, Crew, Process, Task
+from crewai_tools import SerperDevTool
 
+load_dotenv()
 
-def create_passport_crew() -> Crew:
-    """Factory function to generate a fresh Crew instance per request using OpenRouter."""
-    passport_agent = Agent(
-        role="Passport Services Assistant",
-        goal=(
-            "Provide clear, step-by-step guidance on Nigerian passport"
-            " applications, renewals, and current official fee schedules."
-        ),
-        backstory=(
-            "You are a dedicated civic assistant specializing in helping Nigerian"
-            " citizens navigate international passport procedures, documentation"
-            " requirements, and accurate government fee structures."
-        ),
-        verbose=False,
-        allow_delegation=False,
-        llm=get_llm(),
-    )
+logger = logging.getLogger(__name__)
 
-    passport_task = Task(
-        description=(
-            "Provide full application guidance and a document checklist for:"
-            " {user_query}. When explaining costs, you MUST use the following"
-            " updated Nigeria Immigration Service (NIS) fee schedule:\n-"
-            " **Applications within Nigeria:**\n  - 32-Page Passport (5-Year"
-            " Validity): ₦100,000\n  - 64-Page Passport (10-Year Validity):"
-            " ₦200,000\n- **Applications from Diaspora:**\n  - 32-Page Passport"
-            " (5-Year Validity): $150\n  - 64-Page Passport (10-Year Validity):"
-            " $230\nEnsure all details clearly state these exact figures."
-        ),
-        expected_output=(
-            "A structured guide covering updated fees (₦100k/₦200k in Nigeria,"
-            " $150/$230 Diaspora), eligibility, required documents, step-by-step"
-            " application instructions, and key warnings."
-        ),
-        agent=passport_agent,
-    )
+# Initialize Search Tool safely
+serper_api_key = os.getenv("SERPER_API_KEY")
+search_tool = SerperDevTool() if serper_api_key else None
 
-    return Crew(
-        agents=[passport_agent],
-        tasks=[passport_task],
-        process=Process.sequential,
-        verbose=False,
-    )
+# Fetch Model Name (Default to OpenRouter's Free Router)
+model_name = os.getenv("MODEL_NAME", "openrouter/free")
+if not model_name.startswith("openrouter/"):
+    model_name = f"openrouter/{model_name}"
 
+api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
 
-async def run_passport_agent(query: str) -> str:
-    """Asynchronously executes the passport agent crew using kickoff_async()."""
-    crew = create_passport_crew()
-    result = await crew.kickoff_async(inputs={"user_query": query})
-    return str(result)
+# Properly configure CrewAI LLM for OpenRouter
+openrouter_llm = LLM(
+    model=model_name,
+    base_url="https://openrouter.ai/api/v1",
+    api_key=api_key,
+)
+
+agent_tools = [search_tool] if search_tool else []
+
+# Passport Agent
+# Explicitly disable native tool calls on the agent if using OpenRouter free models
+passport_agent = Agent(
+    role="Nigerian Passport Assistant",
+    goal="Provide accurate, up-to-date guidance on Nigerian international passport applications and official NIS fees.",
+    backstory=(
+        "You are an expert guide for Nigeria Immigration Service (NIS) passport procedures. "
+        "You always use web search to verify current official fees and policies before answering questions about pricing or requirements."
+    ),
+    tools=agent_tools,
+    llm=openrouter_llm,
+    use_system_prompt=True,
+    verbose=True,
+)
+
+async def run_passport_agent(user_query: str) -> str:
+    try:
+        passport_task = Task(
+            description=(
+                f"User Query: '{user_query}'\n\n"
+                "If the query asks about passport fees, application requirements, or official processes, "
+                "use your search tool to check the latest official Nigeria Immigration Service (NIS) guidelines and pricing "
+                "before generating your response. Provide clear, accurate, and structured advice."
+            ),
+            expected_output=(
+                "A clear, well-structured response containing accurate NIS guidelines, correct validity periods, "
+                "verified official fees in NGN, and official application steps."
+            ),
+            agent=passport_agent,
+        )
+
+        crew = Crew(
+            agents=[passport_agent],
+            tasks=[passport_task],
+            process=Process.sequential,
+        )
+
+        result = await crew.kickoff_async()
+        return str(result)
+
+    except Exception as e:
+        logger.error(f"Error running passport agent: {str(e)}", exc_info=True)
+        return f"An error occurred while processing your request: {str(e)}"
