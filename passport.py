@@ -1,8 +1,17 @@
 import os
 import asyncio
+from dotenv import load_dotenv
 from crewai import LLM, Agent, Crew, Process, Task
 
-# Official Fee Schedule Context
+# Force-load environment variables from .env
+load_dotenv(override=True)
+
+openrouter_key = os.getenv("OPENROUTER_API_KEY")
+
+if not openrouter_key:
+    raise ValueError("OPENROUTER_API_KEY is missing from environment or .env file.")
+
+# Official passport fees context
 OFFICIAL_FEE_SCHEDULE = """
 OFFICIAL NIGERIAN PASSPORT FEES (2026 SCHEDULE):
 - Inside Nigeria (32 Pages, 5-Year Validity): ₦100,000
@@ -11,13 +20,11 @@ OFFICIAL NIGERIAN PASSPORT FEES (2026 SCHEDULE):
 - Diaspora / Abroad (64 Pages, 10-Year Validity): $230 USD
 """
 
-api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
-MODEL_NAME = "openrouter/google/gemma-4-26b-a4b-it:free"
-
+# Configure OpenRouter explicitly using the 'openrouter/' provider prefix
 openrouter_llm = LLM(
-    model=MODEL_NAME,
+    model="openrouter/google/gemma-4-26b-a4b-it:free",
     base_url="https://openrouter.ai/api/v1",
-    api_key=api_key,
+    api_key=openrouter_key,
 )
 
 passport_agent = Agent(
