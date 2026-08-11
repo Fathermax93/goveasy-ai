@@ -103,39 +103,52 @@
 
 <script>
 async function askGovEasy() {
-    const message = document.getElementById("message").value;
+    const messageInput = document.getElementById("message");
+    const message = messageInput.value.trim();
     const answerBox = document.getElementById("answer");
 
-    if (!message.trim()) {
+    if (!message) {
         answerBox.innerHTML = "<div class='loading-state'>Please enter a question before submitting.</div>";
         return;
     }
 
-    answerBox.innerHTML = "<div class='loading-state'>Processing your request...</div>";
+    answerBox.innerHTML = "<div class='loading-state'>🔍 Searching NIS guidelines & processing answer...</div>";
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     try {
         const response = await fetch("/agent/run", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: message })
+            body: JSON.stringify({ message: message }),
+            signal: controller.signal
         });
 
+        clearTimeout(timeoutId);
+
         if (!response.ok) {
-            const errorData = await response.json();
+            const errorData = await response.json().catch(() => ({ detail: "Server error occurred" }));
             throw new Error(errorData.detail || "Server error occurred");
         }
 
         const data = await response.json();
         console.log("API Response:", data);
 
-        // Fallback checks across common response keys
         const rawOutput = data.answer || data.response || data.result || data.output || (typeof data === 'string' ? data : JSON.stringify(data));
         
         answerBox.innerHTML = `<div class="response-card">${marked.parse(rawOutput)}</div>`;
     } catch (error) {
+        clearTimeout(timeoutId);
         console.error("Execution error:", error);
+        
+        let errorMsg = "Sorry, GovEasy AI is temporarily unavailable. Please try again in a few moments.";
+        if (error.name === 'AbortError') {
+            errorMsg = "The query timed out while searching. Please try asking again.";
+        }
+
         answerBox.innerHTML = `<div class="response-card" style="border-left-color: #dc2626;">
-            <p style="color: #dc2626; margin: 0;">Sorry, GovEasy AI is temporarily unavailable. Please try again in a few moments.</p>
+            <p style="color: #dc2626; margin: 0;">${errorMsg}</p>
         </div>`;
     }
 }

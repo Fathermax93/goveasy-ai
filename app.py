@@ -1,24 +1,11 @@
-import os
-from pathlib import Path
-from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from router import router as api_router
 
-load_dotenv()
+app = FastAPI(title="GovEasy AI")
 
-if not os.getenv("OPENROUTER_API_KEY"):
-    raise RuntimeError(
-        "CRITICAL: OPENROUTER_API_KEY is missing from your .env file."
-    )
-
-app = FastAPI(
-    title="GovEasy AI",
-    description="Backend API and web UI for government service inquiries.",
-    version="1.0.0",
-)
-
+# CORS Configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -27,26 +14,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Register API routes
 app.include_router(api_router)
 
-
-@app.get("/", response_class=HTMLResponse)
-async def serve_ui():
-    """Serves the index.html user interface directly at root."""
-    html_file = Path(__file__).parent.resolve() / "index.html"
-
-    if not html_file.exists():
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"index.html not found at: {html_file}. Please ensure"
-                " index.html exists in your project root."
-            ),
-        )
-
-    return html_file.read_text(encoding="utf-8")
-
-
-@app.get("/health")
-async def health():
-    return {"status": "online", "message": "GovEasy AI Backend Ready"}
+# Serve static frontend (index.html)
+app.mount("/", StaticFiles(directory=".", html=True), name="static")
