@@ -20,7 +20,7 @@ OFFICIAL NIGERIAN PASSPORT FEES (2026 SCHEDULE):
 - Diaspora / Abroad (64 Pages, 10-Year Validity): $230 USD
 """
 
-# Configure OpenRouter explicitly using the 'openrouter/' provider prefix
+# Configure OpenRouter explicitly with your chosen Gemma 4 model slug
 openrouter_llm = LLM(
     model="openrouter/google/gemma-4-26b-a4b-it:free",
     base_url="https://openrouter.ai/api/v1",
@@ -36,7 +36,8 @@ passport_agent = Agent(
     allow_delegation=False,
 )
 
-async def run_passport_agent(user_query: str) -> str:
+def _execute_crew(user_query: str) -> str:
+    """Synchronous execution helper to safely run in a background thread."""
     passport_task = Task(
         description=(
             f"User Query: '{user_query}'\n\n"
@@ -64,5 +65,9 @@ async def run_passport_agent(user_query: str) -> str:
         process=Process.sequential,
     )
 
-    result = await crew.kickoff_async()
+    result = crew.kickoff()
     return str(result.raw if hasattr(result, "raw") else result)
+
+async def run_passport_agent(user_query: str) -> str:
+    """Non-blocking async wrapper for FastAPI."""
+    return await asyncio.to_thread(_execute_crew, user_query)
