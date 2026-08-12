@@ -16,11 +16,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register API routes
+# 1. Health check endpoint (useful for SnapDeploy status checks)
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
+# 2. Register API routes BEFORE static mounting
 app.include_router(api_router)
 
-# Serve static frontend (index.html)
-app.mount("/", StaticFiles(directory=".", html=True), name="static")
+# 3. Serve static files ONLY if static directory exists (or mount under /static)
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
