@@ -6,9 +6,9 @@ from crewai import LLM, Agent, Crew, Process, Task
 # Force-load environment variables from .env
 load_dotenv(override=True)
 
-openrouter_key = os.getenv("OPENROUTER_API_KEY")
+api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
 
-if not openrouter_key:
+if not api_key:
     raise ValueError("OPENROUTER_API_KEY is missing from environment or .env file.")
 
 # Official passport fees context
