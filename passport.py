@@ -6,6 +6,7 @@ from crewai import LLM, Agent, Crew, Process, Task
 # Force-load environment variables from .env
 load_dotenv(override=True)
 
+# 1. Grab the OpenRouter key (or fallback to OPENAI_API_KEY)
 api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
 
 if not api_key:
@@ -20,11 +21,11 @@ OFFICIAL NIGERIAN PASSPORT FEES (2026 SCHEDULE):
 - Diaspora / Abroad (64 Pages, 10-Year Validity): $230 USD
 """
 
-# Configure OpenRouter explicitly with your chosen Gemma 4 model slug
+# 2. Updated `api_key=api_key` to match variable defined above
 openrouter_llm = LLM(
     model="openrouter/google/gemma-4-26b-a4b-it:free",
     base_url="https://openrouter.ai/api/v1",
-    api_key=openrouter_key,
+    api_key=api_key,
 )
 
 passport_agent = Agent(
