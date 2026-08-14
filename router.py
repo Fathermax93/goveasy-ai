@@ -1,6 +1,7 @@
 import traceback
 import logging
 from fastapi import APIRouter, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from passport import run_passport_agent
 
@@ -18,7 +19,9 @@ async def run_agent(request: QueryRequest):
         if not clean_message:
             raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
-        response = await run_passport_agent(clean_message)
+        # Offload synchronous CrewAI execution to FastAPI threadpool
+        # This keeps Uvicorn's event loop responsive so Cloudflare won't throw 502
+        response = await run_in_threadpool(run_passport_agent, clean_message)
         
         # Ensure string format for response return
         output_text = str(response) if response else "No response generated."
