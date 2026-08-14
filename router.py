@@ -40,7 +40,6 @@ async def run_agent(request: QueryRequest):
             return {
                 "answer": (
                     "GovEasy AI network service timed out while processing your request. "
-                    "The free-tier model provider may be experiencing high demand. "
                     "Please try your query again in a few seconds."
                 )
             }
