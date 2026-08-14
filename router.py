@@ -1,7 +1,6 @@
 import traceback
 import logging
 from fastapi import APIRouter, HTTPException
-from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from passport import run_passport_agent
 
@@ -19,16 +18,14 @@ async def run_agent(request: QueryRequest):
         if not clean_message:
             raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
-        # Offload synchronous CrewAI execution to FastAPI threadpool
-        # This keeps Uvicorn's event loop responsive so Cloudflare won't throw 502
-        response = await run_in_threadpool(run_passport_agent, clean_message)
+        # Directly await run_passport_agent (it handles thread offloading internally)
+        response = await run_passport_agent(clean_message)
         
         # Ensure string format for response return
         output_text = str(response) if response else "No response generated."
         return {"answer": output_text}
 
     except HTTPException:
-        # Re-raise explicit HTTP errors (e.g. 400 Bad Request)
         raise
 
     except Exception as e:
@@ -38,7 +35,6 @@ async def run_agent(request: QueryRequest):
         traceback.print_exc()
         print("=" * 50 + "\n")
 
-        # Catch Network / SSL / Timeout errors gracefully so SnapDeploy doesn't drop the connection with a 500
         if any(term in error_msg.lower() for term in ["timeout", "connection", "httpcore", "connecttimeout"]):
             return {
                 "answer": (
@@ -47,7 +43,6 @@ async def run_agent(request: QueryRequest):
                 )
             }
 
-        # Fallback for unexpected internal execution errors
         return {
             "answer": "GovEasy AI is currently experiencing a temporary issue. Please try again shortly."
         }
