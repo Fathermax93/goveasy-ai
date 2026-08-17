@@ -18,7 +18,7 @@ async def run_agent(request: QueryRequest):
         if not clean_message:
             raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
-        # Directly await run_passport_agent (it handles thread offloading internally)
+        # Directly await run_passport_agent (asyncio.to_thread is inside passport.py)
         response = await run_passport_agent(clean_message)
         
         # Ensure string format for response return
